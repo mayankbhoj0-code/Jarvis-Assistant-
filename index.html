@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Disaster Management Hub</title>
+    <meta name="description" content="Interactive disaster management website with live map, resources, and an AI assistant." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+            colors: {
+              primary: {
+                50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+                400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+                800: '#3730a3', 900: '#312e81'
+              },
+              accent: '#10b981'
+            },
+            boxShadow: {
+              glow: '0 10px 25px rgba(99, 102, 241, 0.35)'
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <style>
+      html, body { height: 100%; }
+      #map { height: 100%; }
+      .leaflet-control-attribution { font-size: 11px; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-sans">
+    <header class="sticky top-0 z-40 backdrop-blur bg-white/75 border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent shadow-glow"></div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Disaster Management Hub</h1>
+            <p class="text-xs sm:text-sm text-slate-600">Preparedness • Response • Recovery • Mitigation</p>
+          </div>
+        </div>
+        <nav class="hidden md:flex items-center gap-6 text-sm">
+          <a href="#map-section" class="hover:text-primary-600">Map</a>
+          <a href="#topics" class="hover:text-primary-600">Topics</a>
+          <a href="#resources" class="hover:text-primary-600">Resources</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-primary-50 via-white to-white pointer-events-none"></div>
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 grid lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-1 space-y-4">
+            <h2 class="text-2xl sm:text-3xl font-bold">Be ready. Stay informed. Act fast.</h2>
+            <p class="text-slate-700">Explore hazards near you, find shelters, and get AI-guided advice tailored to the situation.</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3 py-1 inline-flex items-center rounded-full text-xs bg-primary-100 text-primary-700">Floods</span>
+              <span class="px-3 py-1 inline-flex items-center rounded-full text-xs bg-emerald-100 text-emerald-700">Wildfires</span>
+              <span class="px-3 py-1 inline-flex items-center rounded-full text-xs bg-amber-100 text-amber-700">Earthquakes</span>
+              <span class="px-3 py-1 inline-flex items-center rounded-full text-xs bg-rose-100 text-rose-700">Storms</span>
+            </div>
+            <div class="flex gap-3">
+              <button id="locateMeBtn" class="px-4 py-2 rounded-lg bg-primary-600 text-white shadow hover:bg-primary-700">Use my location</button>
+              <button id="resetViewBtn" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100">Reset view</button>
+            </div>
+          </div>
+          <div id="map-section" class="lg:col-span-2 h-[60vh] rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+            <div id="map" class="w-full h-full"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Controls -->
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="col-span-2 flex flex-wrap items-center gap-3">
+            <label class="text-sm text-slate-700">Layers:</label>
+            <label class="inline-flex items-center gap-2 text-sm"><input id="toggle-shelters" type="checkbox" class="accent-primary-600" checked /> Shelters</label>
+            <label class="inline-flex items-center gap-2 text-sm"><input id="toggle-hazards" type="checkbox" class="accent-primary-600" checked /> Hazards</label>
+            <label class="inline-flex items-center gap-2 text-sm"><input id="toggle-you" type="checkbox" class="accent-primary-600" checked /> You</label>
+          </div>
+          <div class="col-span-1">
+            <div class="relative">
+              <input id="searchInput" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-9 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Search hazards or shelters..." />
+              <span class="absolute right-3 top-2.5 text-slate-400">⌘K</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Topics -->
+      <section id="topics" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <h3 class="text-xl sm:text-2xl font-bold mb-4">Related Topics</h3>
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <article class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <h4 class="font-semibold mb-2">Preparedness</h4>
+            <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+              <li>72-hour kit and go-bag</li>
+              <li>Family communication plan</li>
+              <li>Home hazard mitigation</li>
+            </ul>
+          </article>
+          <article class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <h4 class="font-semibold mb-2">Response</h4>
+            <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+              <li>Evacuation routes</li>
+              <li>First aid and CPR</li>
+              <li>Situation awareness</li>
+            </ul>
+          </article>
+          <article class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <h4 class="font-semibold mb-2">Recovery</h4>
+            <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+              <li>Damage documentation</li>
+              <li>Insurance claims</li>
+              <li>Mental health support</li>
+            </ul>
+          </article>
+          <article class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <h4 class="font-semibold mb-2">Mitigation</h4>
+            <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+              <li>Defensible space (wildfire)</li>
+              <li>Floodproofing</li>
+              <li>Seismic retrofits</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- Resources -->
+      <section id="resources" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <h3 class="text-xl sm:text-2xl font-bold mb-4">Resources</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+          <a class="block p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition" href="https://www.ready.gov/plan" target="_blank" rel="noreferrer">Ready.gov: Make a Plan</a>
+          <a class="block p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition" href="https://www.fema.gov" target="_blank" rel="noreferrer">FEMA</a>
+          <a class="block p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition" href="https://www.redcross.org/get-help/how-to-prepare-for-emergencies.html" target="_blank" rel="noreferrer">American Red Cross</a>
+        </div>
+      </section>
+    </main>
+
+    <!-- Floating AI Assistant -->
+    <div id="ai-toggle" class="fixed bottom-6 right-6 z-50">
+      <button class="group flex items-center gap-3 px-4 py-3 rounded-full bg-gradient-to-r from-primary-600 to-accent text-white shadow-glow hover:shadow-lg focus:outline-none">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+        <span class="font-semibold">Ask AI</span>
+      </button>
+    </div>
+    <section id="ai-panel" class="fixed bottom-24 right-6 w-[22rem] max-w-[95vw] hidden z-50">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div class="font-semibold">AI Assistant</div>
+          <button id="ai-close" class="text-slate-500 hover:text-slate-800">✕</button>
+        </div>
+        <div id="ai-log" class="h-72 overflow-y-auto p-4 space-y-3 text-sm"></div>
+        <form id="ai-form" class="flex items-center gap-2 p-3 border-t border-slate-200">
+          <input id="ai-input" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Ask about hazards, shelters, or safety tips..." />
+          <button class="px-3 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-600">
+      <p>Map data © <a href="https://www.openstreetmap.org/" target="_blank" rel="noreferrer" class="underline">OpenStreetMap</a> contributors • Educational use only</p>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+  </html>
+
